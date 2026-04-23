@@ -77,6 +77,33 @@ static bool bootloaderCleared = false;
 static bool funcsUnpatched = false;
 #endif
 
+static u32 ra_prevCoins = 0xFFFFFFFF;
+static bool ra_coinUnlocked = false;
+static int ra_coinPollDivider = 0;
+
+static void ra_checkCoinsAchievement(void) {
+	if (ra_coinUnlocked) return;
+
+	ra_coinPollDivider++;
+	if (ra_coinPollDivider < 4) return;
+	ra_coinPollDivider = 0;
+
+	u32 coins = *(volatile u32*)0x0209DC18;
+
+	if (ra_prevCoins == 0xFFFFFFFF) {
+		ra_prevCoins = coins;
+		return;
+	}
+
+	if (ra_prevCoins == 0 && coins == 1) {
+		ra_coinUnlocked = true;
+		sharedAddr[0] = 1;
+		sharedAddr[4] = 0x41484352; // 'RCHA' marker
+	}
+
+	ra_prevCoins = coins;
+}
+
 //static int saveReadTimeOut = 0;
 
 //static int saveTimer = 0;
@@ -286,6 +313,8 @@ void myIrqHandlerFIFO(void) {
 void myIrqHandlerVBlank(void) {
 //---------------------------------------------------------------------------------
   while (1) {
+	ra_checkCoinsAchievement();
+
 	#ifdef DEBUG		
 	nocashMessage("myIrqHandlerVBlank");
 	#endif	
